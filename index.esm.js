@@ -1,5 +1,5 @@
 import { Exception, throwIfInstantiateAbstract, throwNotImplementedException } from 'locustjs-exception';
-import { isBool, isNumeric, isString } from 'locustjs-base';
+import { isBool, isNumeric, isString, isFunction } from 'locustjs-base';
 import { removeAt } from 'locustjs-extensions-array';
 
 class InvalidEventHandlerException extends Exception {

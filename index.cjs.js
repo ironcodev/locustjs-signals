@@ -257,7 +257,7 @@ var SubscriptionManagerDefault = /*#__PURE__*/function (_SubscriptionManagerB) {
       var entryIndex = -1;
       var subscriberIndex = -1;
 
-      if (isFunction(subscription)) {
+      if ((0, _locustjsBase.isFunction)(subscription)) {
         for (var i = 0; i < this._store.length; i++) {
           for (var j = 0; j < this._store[i].subscribers.length; j++) {
             if (this._store[i].subscribers[j].eventHandler == subscription) {

@@ -1,6 +1,6 @@
 {
   "name": "locustjs-signals",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "This library implements publisher-subscribe pattern and provides utility classes in this topic.",
   "main": "index.cjs.js",
   "module": "index.esm.js",

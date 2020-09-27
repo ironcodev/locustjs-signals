@@ -26,7 +26,12 @@ Methods:
 |disable|disable subscriber|
 |unsubscribe|unsubscribe the subscriber|
 
-## examples
+
+
+## SubscriptionManagerDefault
+Default implementation of SubscriptionManagerBase. It uses an internal array to store subscribers, hence, the instance of this subscription manager should be used as a singleton object in order to perform correctly.
+
+# examples
 
 example 1
 

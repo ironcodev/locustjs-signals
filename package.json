@@ -1,0 +1,32 @@
+{
+  "name": "locustjs-signals",
+  "version": "1.0.0",
+  "description": "This library implements publisher-subscribe pattern and provides utility classes in this topic.",
+  "main": "index.cjs.js",
+  "module": "index.esm.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ironcodev/locustjs-signals.git"
+  },
+  "keywords": [
+    "locustjs",
+    "javascript",
+    "pubsub",
+    "observer pattern",
+    "publisher subscriber pattern"
+  ],
+  "author": "Iron Code",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ironcodev/locustjs-signals/issues"
+  },
+  "homepage": "https://github.com/ironcodev/locustjs-signals#readme",
+  "dependencies": {
+    "locustjs-base": "^1.0.10",
+    "locustjs-exception": "^1.0.2",
+    "locustjs-extensions-array": "^1.0.11"
+  }
+}

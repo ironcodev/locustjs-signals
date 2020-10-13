@@ -1,6 +1,16 @@
 import { Exception, throwIfInstantiateAbstract, throwNotImplementedException } from 'locustjs-exception';
-import { isBool, isNumeric, isString, isFunction } from 'locustjs-base';
+import { isEmpty, isBool, isNumeric, isString, isFunction } from 'locustjs-base';
 import { removeAt } from 'locustjs-extensions-array';
+
+class InvalidEventException extends Exception {
+    constructor(host) {
+        super({
+            status: 'invalid-event',
+            message: `invalid event.`,
+            host
+        });
+    }
+}
 
 class InvalidEventHandlerException extends Exception {
     constructor(host) {
@@ -48,11 +58,18 @@ function throwIfInvalidHandler(eventHandler, host) {
     }
 }
 
+function throwIfInvalidEvent(event, host) {
+    if (isEmpty(event)) {
+        throw new InvalidEventException(host);
+    }
+}
+
 class SubscriptionManagerBase {
     constructor(config) {
         throwIfInstantiateAbstract(SubscriptionManagerBase, this);
 
         this._config = Object.assign({
+			throwOnDispatchError: false,
             throwInvalidEvents: false,
             haltOnErrors: true
         }, config);
@@ -75,6 +92,12 @@ class SubscriptionManagerBase {
     unsubscribe(subscription) {
         throwNotImplementedException('SubscriptionManagerBase.unsubscribe');
     }
+	pause() {
+        throwNotImplementedException('SubscriptionManagerBase.pause');
+    }
+    resume() {
+        throwNotImplementedException('SubscriptionManagerBase.resume');
+    }
 }
 
 class SubscriptionManagerDefault extends SubscriptionManagerBase {
@@ -82,66 +105,117 @@ class SubscriptionManagerDefault extends SubscriptionManagerBase {
         super(config);
 
         this._store = [];
+		this._pendingEvents = [];
+		this._paused = false;
     }
     _findEvent(event) {
         const index = this._store.findIndex(x => x.event === event);
 
         return index;
     }
-    subscribe(event, eventHandler, config) {
+    subscribe(event, eventHandler, state) {
+		throwIfInvalidEvent(event);
         throwIfInvalidHandler(eventHandler);
 
         let result;
         const index = this._findEvent(event);
 
         if (index >= 0) {
-            this._store[index].subscribers.push(Object.assign({
+            this._store[index].subscribers.push({
                 eventHandler: eventHandler,
                 async: false,
-                disabled: false
-            }, config));
+                disabled: false,
+				state: state
+            });
 
             result = index.toString() + '.' + (this._store[index].subscribers.length - 1).toString()
         } else {
             this._store.push({
                 event: event,
-                subscribers: [
-                    Object.assign({
-                        eventHandler: eventHandler,
-                        async: false,
-                        disabled: false
-                    }, config)
+                subscribers: [{
+						eventHandler: eventHandler,
+						async: false,
+						disabled: false,
+						state: state
+					}
                 ]
             });
 
             result = (this._store.length - 1).toString() + '.0';
         }
 
+		if (!this._paused) {
+			this._dispatchPendings(event);
+		}
+		
         return result;
     }
+	_dispatchPendings(event) {
+		let i = 0;
+		
+		while (i < this._pendingEvents.length) {
+			const item = this._pendingEvents[i];
+			
+			if (item.event == event || event == undefined) {
+				this.dispatch(item.event, item.data);
+				
+				this._pendingEvents.splice(i, 1);
+			} else {
+				i++;
+			}
+		}
+	}
     dispatch(event, data) {
+		throwIfInvalidEvent(event);
+		
         const index = this._findEvent(event);
 
         if (index >= 0) {
-            for (let i = 0; i < this._store[index].subscribers.length; i++) {
-                const subscriber = this._store[index].subscribers[i];
+			if (this._paused || this._store[index].subscribers.length == 0) {
+				this._pendingEvents.push({ event, data });
+			} else {
+				this._dispatchPendings(event);
+				
+				for (let i = 0; i < this._store[index].subscribers.length; i++) {
+					const subscriber = this._store[index].subscribers[i];
 
-                if (subscriber.disabled) {
-                    continue;
-                }
+					if (subscriber.disabled) {
+						continue;
+					}
 
-                const result = subscriber.eventHandler(data, subscriber.state, this);
+					let result;
+					
+					try {
+						result = subscriber.eventHandler(data, subscriber.state, this);
+					} catch (e) {
+						if (this.config.haltOnErrors) {
+							if (this.config.throwOnDispatchError) {
+								throw e;
+							} else {
+								break;
+							}
+						} else {
+							continue;
+						}
+					}
 
-                if (result != null) {
-                    if (isBool(result) && !result) {
-                        break;
-                    }
-                }
-            }
+					if (result != null) {
+						if (isBool(result) && !result) {
+							break;
+						}
+					}
+				}
+			}
         } else {
             if (this.config.throwInvalidEvents) {
                 throw new EventNotFoundException(event);
-            }
+            } else {
+				this._store.push({
+					event: event,
+					subscribers: []
+				});
+				this._pendingEvents.push({ event, data });
+			}
         }
     }
     _findSubscription(subscription) {
@@ -194,11 +268,20 @@ class SubscriptionManagerDefault extends SubscriptionManagerBase {
 
         this._store[item.entryIndex].subscribers[item.subscriberIndex].disabled = false;
     }
+	pause() {
+        this._paused = true;
+    }
+    resume() {
+		this._dispatchPendings();
+		
+        this._paused = false;
+    }
 }
 
 export {
 	SubscriptionManagerBase,
 	SubscriptionManagerDefault,
+	InvalidEventException,
     InvalidEventHandlerException,
     EventNotFoundException,
     SubscriptionNotFoundException,

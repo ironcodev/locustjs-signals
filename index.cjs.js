@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.InvalidSubscriptionException = exports.SubscriptionNotFoundException = exports.EventNotFoundException = exports.InvalidEventHandlerException = exports.SubscriptionManagerDefault = exports.SubscriptionManagerBase = void 0;
+exports.InvalidSubscriptionException = exports.SubscriptionNotFoundException = exports.EventNotFoundException = exports.InvalidEventHandlerException = exports.InvalidEventException = exports.SubscriptionManagerDefault = exports.SubscriptionManagerBase = void 0;
 
 var _locustjsException = require("locustjs-exception");
 
@@ -35,15 +35,35 @@ function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Re
 
 function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
 
-var InvalidEventHandlerException = /*#__PURE__*/function (_Exception) {
-  _inherits(InvalidEventHandlerException, _Exception);
+var InvalidEventException = /*#__PURE__*/function (_Exception) {
+  _inherits(InvalidEventException, _Exception);
 
-  var _super = _createSuper(InvalidEventHandlerException);
+  var _super = _createSuper(InvalidEventException);
+
+  function InvalidEventException(host) {
+    _classCallCheck(this, InvalidEventException);
+
+    return _super.call(this, {
+      status: 'invalid-event',
+      message: "invalid event.",
+      host: host
+    });
+  }
+
+  return InvalidEventException;
+}(_locustjsException.Exception);
+
+exports.InvalidEventException = InvalidEventException;
+
+var InvalidEventHandlerException = /*#__PURE__*/function (_Exception2) {
+  _inherits(InvalidEventHandlerException, _Exception2);
+
+  var _super2 = _createSuper(InvalidEventHandlerException);
 
   function InvalidEventHandlerException(host) {
     _classCallCheck(this, InvalidEventHandlerException);
 
-    return _super.call(this, {
+    return _super2.call(this, {
       status: 'invalid-event-handler',
       message: "invalid event handler. expected function.",
       host: host
@@ -55,15 +75,15 @@ var InvalidEventHandlerException = /*#__PURE__*/function (_Exception) {
 
 exports.InvalidEventHandlerException = InvalidEventHandlerException;
 
-var EventNotFoundException = /*#__PURE__*/function (_Exception2) {
-  _inherits(EventNotFoundException, _Exception2);
+var EventNotFoundException = /*#__PURE__*/function (_Exception3) {
+  _inherits(EventNotFoundException, _Exception3);
 
-  var _super2 = _createSuper(EventNotFoundException);
+  var _super3 = _createSuper(EventNotFoundException);
 
   function EventNotFoundException(event, host) {
     _classCallCheck(this, EventNotFoundException);
 
-    return _super2.call(this, {
+    return _super3.call(this, {
       status: 'event-not-found',
       message: "event ".concat(event, " was not found."),
       host: host
@@ -75,15 +95,15 @@ var EventNotFoundException = /*#__PURE__*/function (_Exception2) {
 
 exports.EventNotFoundException = EventNotFoundException;
 
-var SubscriptionNotFoundException = /*#__PURE__*/function (_Exception3) {
-  _inherits(SubscriptionNotFoundException, _Exception3);
+var SubscriptionNotFoundException = /*#__PURE__*/function (_Exception4) {
+  _inherits(SubscriptionNotFoundException, _Exception4);
 
-  var _super3 = _createSuper(SubscriptionNotFoundException);
+  var _super4 = _createSuper(SubscriptionNotFoundException);
 
   function SubscriptionNotFoundException(subscription, host) {
     _classCallCheck(this, SubscriptionNotFoundException);
 
-    return _super3.call(this, {
+    return _super4.call(this, {
       status: 'subscriber-not-found',
       message: "subscriber ".concat(subscription, " was not found."),
       host: host
@@ -95,15 +115,15 @@ var SubscriptionNotFoundException = /*#__PURE__*/function (_Exception3) {
 
 exports.SubscriptionNotFoundException = SubscriptionNotFoundException;
 
-var InvalidSubscriptionException = /*#__PURE__*/function (_Exception4) {
-  _inherits(InvalidSubscriptionException, _Exception4);
+var InvalidSubscriptionException = /*#__PURE__*/function (_Exception5) {
+  _inherits(InvalidSubscriptionException, _Exception5);
 
-  var _super4 = _createSuper(InvalidSubscriptionException);
+  var _super5 = _createSuper(InvalidSubscriptionException);
 
   function InvalidSubscriptionException(subscription, host) {
     _classCallCheck(this, InvalidSubscriptionException);
 
-    return _super4.call(this, {
+    return _super5.call(this, {
       status: 'invalid-subscription',
       message: "invalid subscription '".concat(subscription, "'."),
       host: host
@@ -121,12 +141,19 @@ function throwIfInvalidHandler(eventHandler, host) {
   }
 }
 
+function throwIfInvalidEvent(event, host) {
+  if ((0, _locustjsBase.isEmpty)(event)) {
+    throw new InvalidEventException(host);
+  }
+}
+
 var SubscriptionManagerBase = /*#__PURE__*/function () {
   function SubscriptionManagerBase(config) {
     _classCallCheck(this, SubscriptionManagerBase);
 
     (0, _locustjsException.throwIfInstantiateAbstract)(SubscriptionManagerBase, this);
     this._config = Object.assign({
+      throwOnDispatchError: false,
       throwInvalidEvents: false,
       haltOnErrors: true
     }, config);
@@ -158,6 +185,16 @@ var SubscriptionManagerBase = /*#__PURE__*/function () {
       (0, _locustjsException.throwNotImplementedException)('SubscriptionManagerBase.unsubscribe');
     }
   }, {
+    key: "pause",
+    value: function pause() {
+      (0, _locustjsException.throwNotImplementedException)('SubscriptionManagerBase.pause');
+    }
+  }, {
+    key: "resume",
+    value: function resume() {
+      (0, _locustjsException.throwNotImplementedException)('SubscriptionManagerBase.resume');
+    }
+  }, {
     key: "config",
     get: function get() {
       return this._config;
@@ -172,15 +209,17 @@ exports.SubscriptionManagerBase = SubscriptionManagerBase;
 var SubscriptionManagerDefault = /*#__PURE__*/function (_SubscriptionManagerB) {
   _inherits(SubscriptionManagerDefault, _SubscriptionManagerB);
 
-  var _super5 = _createSuper(SubscriptionManagerDefault);
+  var _super6 = _createSuper(SubscriptionManagerDefault);
 
   function SubscriptionManagerDefault(config) {
     var _this;
 
     _classCallCheck(this, SubscriptionManagerDefault);
 
-    _this = _super5.call(this, config);
+    _this = _super6.call(this, config);
     _this._store = [];
+    _this._pendingEvents = [];
+    _this._paused = false;
     return _this;
   }
 
@@ -195,59 +234,118 @@ var SubscriptionManagerDefault = /*#__PURE__*/function (_SubscriptionManagerB) {
     }
   }, {
     key: "subscribe",
-    value: function subscribe(event, eventHandler, config) {
+    value: function subscribe(event, eventHandler, state) {
+      throwIfInvalidEvent(event);
       throwIfInvalidHandler(eventHandler);
       var result;
 
       var index = this._findEvent(event);
 
       if (index >= 0) {
-        this._store[index].subscribers.push(Object.assign({
+        this._store[index].subscribers.push({
           eventHandler: eventHandler,
           async: false,
-          disabled: false
-        }, config));
+          disabled: false,
+          state: state
+        });
 
         result = index.toString() + '.' + (this._store[index].subscribers.length - 1).toString();
       } else {
         this._store.push({
           event: event,
-          subscribers: [Object.assign({
+          subscribers: [{
             eventHandler: eventHandler,
             async: false,
-            disabled: false
-          }, config)]
+            disabled: false,
+            state: state
+          }]
         });
 
         result = (this._store.length - 1).toString() + '.0';
       }
 
+      if (!this._paused) {
+        this._dispatchPendings(event);
+      }
+
       return result;
+    }
+  }, {
+    key: "_dispatchPendings",
+    value: function _dispatchPendings(event) {
+      var i = 0;
+
+      while (i < this._pendingEvents.length) {
+        var item = this._pendingEvents[i];
+
+        if (item.event == event || event == undefined) {
+          this.dispatch(item.event, item.data);
+
+          this._pendingEvents.splice(i, 1);
+        } else {
+          i++;
+        }
+      }
     }
   }, {
     key: "dispatch",
     value: function dispatch(event, data) {
+      throwIfInvalidEvent(event);
+
       var index = this._findEvent(event);
 
       if (index >= 0) {
-        for (var i = 0; i < this._store[index].subscribers.length; i++) {
-          var subscriber = this._store[index].subscribers[i];
+        if (this._paused || this._store[index].subscribers.length == 0) {
+          this._pendingEvents.push({
+            event: event,
+            data: data
+          });
+        } else {
+          this._dispatchPendings(event);
 
-          if (subscriber.disabled) {
-            continue;
-          }
+          for (var i = 0; i < this._store[index].subscribers.length; i++) {
+            var subscriber = this._store[index].subscribers[i];
 
-          var result = subscriber.eventHandler(data, subscriber.state, this);
+            if (subscriber.disabled) {
+              continue;
+            }
 
-          if (result != null) {
-            if ((0, _locustjsBase.isBool)(result) && !result) {
-              break;
+            var result = void 0;
+
+            try {
+              result = subscriber.eventHandler(data, subscriber.state, this);
+            } catch (e) {
+              if (this.config.haltOnErrors) {
+                if (this.config.throwOnDispatchError) {
+                  throw e;
+                } else {
+                  break;
+                }
+              } else {
+                continue;
+              }
+            }
+
+            if (result != null) {
+              if ((0, _locustjsBase.isBool)(result) && !result) {
+                break;
+              }
             }
           }
         }
       } else {
         if (this.config.throwInvalidEvents) {
           throw new EventNotFoundException(event);
+        } else {
+          this._store.push({
+            event: event,
+            subscribers: []
+          });
+
+          this._pendingEvents.push({
+            event: event,
+            data: data
+          });
         }
       }
     }
@@ -311,6 +409,18 @@ var SubscriptionManagerDefault = /*#__PURE__*/function (_SubscriptionManagerB) {
       var item = this._findSubscription(subscription);
 
       this._store[item.entryIndex].subscribers[item.subscriberIndex].disabled = false;
+    }
+  }, {
+    key: "pause",
+    value: function pause() {
+      this._paused = true;
+    }
+  }, {
+    key: "resume",
+    value: function resume() {
+      this._dispatchPendings();
+
+      this._paused = false;
     }
   }]);
 
